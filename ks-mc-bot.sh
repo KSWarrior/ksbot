@@ -6,74 +6,46 @@ read -p "Enter Port: " port
 read -p "Enter Bot Name: " botname
 
 cat <<EOF > $filename.js
-const { ping, StatusBEDROCK } = require('minecraft-server-util')
+const { ping } = require('minecraft-server-util')
 const mineflayer = require('mineflayer')
-const bedrock = require('bedrock-protocol')
 
-// User-defined:
+// Server info
 const host = '$ip'
 const port = $port
 const username = '$botname'
 
-async function detectAndConnect(host, port, username) {
+async function connectBot() {
   try {
-    // Try Java ping first
-    const javaStatus = await ping(host, port, { timeout: 5000 })
-    console.log(\`✅ Detected Java Edition! Version: \${javaStatus.version.name}\`)
+    const status = await ping(host, port, { timeout: 5000 })
+    const version = status.version.name
+    console.log(\`✅ Java Edition detected! Version: \${version}\`)
 
     const bot = mineflayer.createBot({
       host,
       port,
       username,
-      version: javaStatus.version.name // Use detected version
+      version
     })
 
     bot.on('login', () => {
-      console.log(\`✅ \${username} joined Java server!\`)
+      console.log(\`🤖 \${username} joined the server!\`)
     })
 
     bot.on('end', () => {
-      console.log('❌ Disconnected from Java! Reconnecting in 5s...')
-      setTimeout(() => detectAndConnect(host, port, username), 5000)
+      console.log('❌ Disconnected! Reconnecting in 5s...')
+      setTimeout(connectBot, 5000)
     })
 
-    bot.on('error', err => {
-      console.log('⚠️ Java Bot Error:', err.message)
+    bot.on('error', (err) => {
+      console.log('⚠️ Error:', err.message)
     })
 
-  } catch (e) {
-    // Try Bedrock if Java ping fails
-    try {
-      const bedrockStatus = await StatusBEDROCK(host, port, { timeout: 5000 })
-      console.log(\`✅ Detected Bedrock Edition! Version: \${bedrockStatus.version}\`)
-
-      const client = bedrock.createClient({
-        host,
-        port,
-        username,
-        version: bedrockStatus.version
-      })
-
-      client.on('join', () => {
-        console.log(\`✅ \${username} joined Bedrock server!\`)
-      })
-
-      client.on('disconnect', () => {
-        console.log('❌ Disconnected from Bedrock! Reconnecting in 5s...')
-        setTimeout(() => detectAndConnect(host, port, username), 5000)
-      })
-
-      client.on('error', err => {
-        console.log('⚠️ Bedrock Bot Error:', err.message)
-      })
-
-    } catch (err2) {
-      console.error('❌ Failed to detect server edition or connect:', err2.message)
-    }
+  } catch (err) {
+    console.error('❌ Could not connect:', err.message)
   }
 }
 
-detectAndConnect(host, port, username)
+connectBot()
 EOF
 
 echo "✅ $filename.js created successfully!"
