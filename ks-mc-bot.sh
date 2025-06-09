@@ -11,7 +11,7 @@ const mineflayer = require('mineflayer');
 
 let retryCount = 0;
 const MAX_RETRIES = 3600;
-const RETRY_DELAY = 5000; // 5 seconds
+const RETRY_DELAY = 5000;
 
 function createBot() {
   if (retryCount >= MAX_RETRIES) {
@@ -23,22 +23,31 @@ function createBot() {
     host: '$ip',
     port: $port,
     username: '$botname',
-    version: '$mc_version'
+    version: '$mc_version',
+    auth: 'mojang' // or 'offline' for cracked servers
   });
 
   bot.on('login', () => {
     console.log('✅ Bot joined the server!');
-    retryCount = 0; // Reset retry count on successful login
+    retryCount = 0;
+  });
+
+  bot.on('spawn', () => {
+    console.log('🚀 Bot has spawned into the world!');
+  });
+
+  bot.on('kicked', (reason, loggedIn) => {
+    console.log('❌ Bot was kicked:', reason);
+  });
+
+  bot.on('error', (err) => {
+    console.log('❌ Error:', err.message);
   });
 
   bot.on('end', () => {
     retryCount++;
     console.log(\`🔄 Disconnected. Retry \${retryCount}/\${MAX_RETRIES} in 5s...\`);
     setTimeout(createBot, RETRY_DELAY);
-  });
-
-  bot.on('error', (err) => {
-    console.log('❌ Error:', err.message);
   });
 }
 
