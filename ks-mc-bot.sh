@@ -1,57 +1,79 @@
 #!/bin/bash
 
 read -p "Enter File Name: " filename
-read -p "Enter MC Version: " mc_version
 read -p "Enter IP Address: " ip
 read -p "Enter Port: " port
 read -p "Enter Bot Name: " botname
 
 cat <<EOF > $filename.js
-const mineflayer = require('mineflayer');
+const { ping, StatusBEDROCK } = require('minecraft-server-util')
+const mineflayer = require('mineflayer')
+const bedrock = require('bedrock-protocol')
 
-let retryCount = 0;
-const MAX_RETRIES = 3600;
-const RETRY_DELAY = 5000;
+// User-defined:
+const host = '$ip'
+const port = $port
+const username = '$botname'
 
-function createBot() {
-  if (retryCount >= MAX_RETRIES) {
-    console.log('❌ Max retries reached. Bot will not reconnect.');
-    return;
+async function detectAndConnect(host, port, username) {
+  try {
+    // Try Java ping first
+    const javaStatus = await ping(host, port, { timeout: 5000 })
+    console.log(\`✅ Detected Java Edition! Version: \${javaStatus.version.name}\`)
+
+    const bot = mineflayer.createBot({
+      host,
+      port,
+      username,
+      version: javaStatus.version.name // Use detected version
+    })
+
+    bot.on('login', () => {
+      console.log(\`✅ \${username} joined Java server!\`)
+    })
+
+    bot.on('end', () => {
+      console.log('❌ Disconnected from Java! Reconnecting in 5s...')
+      setTimeout(() => detectAndConnect(host, port, username), 5000)
+    })
+
+    bot.on('error', err => {
+      console.log('⚠️ Java Bot Error:', err.message)
+    })
+
+  } catch (e) {
+    // Try Bedrock if Java ping fails
+    try {
+      const bedrockStatus = await StatusBEDROCK(host, port, { timeout: 5000 })
+      console.log(\`✅ Detected Bedrock Edition! Version: \${bedrockStatus.version}\`)
+
+      const client = bedrock.createClient({
+        host,
+        port,
+        username,
+        version: bedrockStatus.version
+      })
+
+      client.on('join', () => {
+        console.log(\`✅ \${username} joined Bedrock server!\`)
+      })
+
+      client.on('disconnect', () => {
+        console.log('❌ Disconnected from Bedrock! Reconnecting in 5s...')
+        setTimeout(() => detectAndConnect(host, port, username), 5000)
+      })
+
+      client.on('error', err => {
+        console.log('⚠️ Bedrock Bot Error:', err.message)
+      })
+
+    } catch (err2) {
+      console.error('❌ Failed to detect server edition or connect:', err2.message)
+    }
   }
-
-  const bot = mineflayer.createBot({
-    host: '$ip',
-    port: $port,
-    username: '$botname',
-    version: '$mc_version',
-    auth: 'mojang' // or 'offline' for cracked servers
-  });
-
-  bot.on('login', () => {
-    console.log('✅ Bot joined the server!');
-    retryCount = 0;
-  });
-
-  bot.on('spawn', () => {
-    console.log('🚀 Bot has spawned into the world!');
-  });
-
-  bot.on('kicked', (reason, loggedIn) => {
-    console.log('❌ Bot was kicked:', reason);
-  });
-
-  bot.on('error', (err) => {
-    console.log('❌ Error:', err.message);
-  });
-
-  bot.on('end', () => {
-    retryCount++;
-    console.log(\`🔄 Disconnected. Retry \${retryCount}/\${MAX_RETRIES} in 5s...\`);
-    setTimeout(createBot, RETRY_DELAY);
-  });
 }
 
-createBot();
+detectAndConnect(host, port, username)
 EOF
 
 echo "✅ $filename.js created successfully!"
