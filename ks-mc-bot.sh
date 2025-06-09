@@ -10,7 +10,7 @@ cat <<EOF > $filename.js
 const mineflayer = require('mineflayer');
 
 let retryCount = 0;
-const MAX_RETRIES = 360;
+const MAX_RETRIES = 3600;
 const RETRY_DELAY = 5000; // 5 seconds
 
 function createBot() {
