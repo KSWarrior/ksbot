@@ -23,4 +23,8 @@ echo "🚀 Installing PM2 globally..."
 npm install -g pm2
 
 echo "✅ pm2 version: $(pm2 -v)"
-echo "🎉 All done! Node.js, npm, and pm2 are installed."
+
+echo "🚀 Installing mineflayer..."
+npm init -y
+npm install mineflayer
+echo "🎉 All done! Node.js, npm, mineflayer and pm2 are installed."
