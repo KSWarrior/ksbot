@@ -1,51 +1,48 @@
 #!/bin/bash
 
-read -p "Enter File Name: " filename
-read -p "Enter IP Address: " ip
-read -p "Enter Port: " port
-read -p "Enter Bot Name: " botname
+# === Config ===
+read -p "Enter Discord Member Name: " DC_USER
+read -p "Enter IP Address: " MC_SERVER
+read -p "Enter Port: " MC_PORT
+read -p "Enter Bot File Name (without .js): " BOT_FILE
 
-cat <<EOF > $filename.js
-const { ping } = require('minecraft-server-util')
-const mineflayer = require('mineflayer')
+MC_VERSION=false
 
-// Server info
-const host = '$ip'
-const port = $port
-const username = '$botname'
+# === Create bot file ===
+cat > "${BOT_FILE}.js" <<EOF
+const mineflayer = require('mineflayer');
 
-async function connectBot() {
-  try {
-    const status = await ping(host, port, { timeout: 5000 })
-    const version = status.version.name
-    console.log(\`✅ Java Edition detected! Version: \${version}\`)
+function start() {
+  const bot = mineflayer.createBot({
+    host: '${MC_SERVER}',
+    port: ${MC_PORT},
+    username: 'KS_Bot',
+    version: ${MC_VERSION}
+  });
 
-    const bot = mineflayer.createBot({
-      host,
-      port,
-      username,
-      version
-    })
+  bot.on('spawn', () => {
+    console.log('[+] KS_Bot joined the server!');
+  });
 
-    bot.on('login', () => {
-      console.log(\`🤖 \${username} joined the server!\`)
-    })
+  bot.on('end', () => {
+    console.log('[!] Disconnected. Reconnecting in 5 seconds...');
+    setTimeout(start, 5000);
+  });
 
-    bot.on('end', () => {
-      console.log('❌ Disconnected! Reconnecting in 5s...')
-      setTimeout(connectBot, 5000)
-    })
-
-    bot.on('error', (err) => {
-      console.log('⚠️ Error:', err.message)
-    })
-
-  } catch (err) {
-    console.error('❌ Could not connect:', err.message)
-  }
+  bot.on('error', (err) => {
+    console.log('[!] Error:', err.message);
+    bot.end();
+    setTimeout(start, 5000);
+  });
 }
 
-connectBot()
+start();
 EOF
 
-echo "✅ $filename.js created successfully!"
+# === Start bot with PM2 ===
+echo "[+] Starting KS_Bot for ${DC_USER} using PM2..."
+pm2 start "${BOT_FILE}.js" --name "${DC_USER}"
+
+# Optional: Save PM2 config to auto-start on reboot
+# pm2 save
+# pm2 startup
